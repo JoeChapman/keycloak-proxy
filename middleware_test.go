@@ -149,7 +149,7 @@ func TestEntrypointWhiteListing(t *testing.T) {
 }
 
 func TestEntrypointHandler(t *testing.T) {
-	proxy, _, _ := newTestProxyService(t, nil)
+	proxy, _ := newTestProxy(nil)
 
 	handler := proxy.entryPointHandler()
 

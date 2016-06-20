@@ -84,7 +84,7 @@ func TestExpirationHandler(t *testing.T) {
 }
 
 func TestLoginHandler(t *testing.T) {
-	_, _, u := newTestProxyService(t, nil)
+	svc, _ := newTestProxyWithURL(nil)
 
 	cs := []struct {
 		Username     string
@@ -114,7 +114,7 @@ func TestLoginHandler(t *testing.T) {
 	}
 
 	for i, x := range cs {
-		u := u + oauthURL + loginURL
+		u := svc + oauthURL + loginURL
 		query := url.Values{}
 		if x.Username != "" {
 			query.Add("username", x.Username)
@@ -135,8 +135,8 @@ func TestLoginHandler(t *testing.T) {
 
 func TestTokenHandler(t *testing.T) {
 	token := newFakeAccessToken()
-	_, _, u := newTestProxyService(t, nil)
-	url := u + oauthURL + tokenURL
+	url, _ := newTestProxyWithURL(nil)
+	url = url + oauthURL + tokenURL
 
 	// step: get a request
 	req, _ := http.NewRequest("GET", url, nil)
@@ -158,7 +158,7 @@ func TestTokenHandler(t *testing.T) {
 }
 
 func TestAuthorizationURL(t *testing.T) {
-	_, _, u := newTestProxyService(t, nil)
+	url, _ := newTestProxyWithURL(nil)
 	client := &http.Client{
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return fmt.Errorf("no redirect")
@@ -195,14 +195,14 @@ func TestAuthorizationURL(t *testing.T) {
 		},
 	}
 	for i, x := range cs {
-		resp, _ := client.Get(u + x.URL)
+		resp, _ := client.Get(url + x.URL)
 		assert.Equal(t, x.ExpectedCode, resp.StatusCode, "case %d, expect: %v, got: %s", i, x.ExpectedCode, resp.StatusCode)
 		assert.Equal(t, x.ExpectedURL, resp.Header.Get("Location"), "case %d, expect: %v, got: %s", i, x.ExpectedURL, resp.Header.Get("Location"))
 	}
 }
 
 func TestCallbackURL(t *testing.T) {
-	_, _, u := newTestProxyService(t, nil)
+	url, _ := newTestProxyWithURL(nil)
 
 	cs := []struct {
 		URL         string
@@ -223,7 +223,7 @@ func TestCallbackURL(t *testing.T) {
 	}
 	for i, x := range cs {
 		// step: call the authorization endpoint
-		req, err := http.NewRequest("GET", u+x.URL, nil)
+		req, err := http.NewRequest("GET", url+x.URL, nil)
 		if err != nil {
 			continue
 		}

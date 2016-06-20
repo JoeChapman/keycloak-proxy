@@ -118,8 +118,10 @@ func (r *oauthProxy) authenticationHandler() gin.HandlerFunc {
 				}).Errorf("the session has expired and verification switch off")
 
 				r.redirectToAuthorization(cx)
+				return
 			}
 
+			cx.Next()
 			return
 		}
 

@@ -18,6 +18,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -42,8 +43,8 @@ const (
 	fakeTestWhitelistedURL = fakeAuthAllURL + "/white_listed"
 	fakeTestListenOrdered  = fakeAuthAllURL + "/bad_order"
 
-	fakeAdminRole = "role:admin"
-	fakeTestRole  = "role:test"
+	fakeAdminRole = "openvpn:admin"
+	fakeTestRole  = "openvpn:test"
 )
 
 func newFakeKeycloakProxyWithResources(t *testing.T, resources []*Resource) *oauthProxy {
@@ -121,10 +122,29 @@ func newFakeKeycloakProxy(t *testing.T) *oauthProxy {
 	return kc
 }
 
-func newTestProxyService(t *testing.T, config *Config) (*oauthProxy, *fakeOAuthServer, string) {
+func newTestProxyWithURL(config *Config) (string, error) {
+	_, _, url, err := newTestProxyService(config)
+	return url, err
+}
+
+func newTestProxyWithAuth(config *Config) (string, error) {
+	_, auth, _, err := newTestProxyService(config)
+	return auth.getLocation(), err
+}
+
+func newTestProxy(config *Config) (*oauthProxy, error) {
+	p, _, _, err := newTestProxyService(config)
+	return p, err
+}
+
+func newTestProxyService(config *Config) (*oauthProxy, *fakeOAuthServer, string, error) {
 	log.SetOutput(ioutil.Discard)
 	// step: create a fake oauth server
-	auth := newFakeOAuthServer(t)
+	auth, err := newFakeOAuthServer()
+	if err != nil {
+		return nil, nil, "", err
+	}
+
 	// step: use the default config if required
 	if config == nil {
 		config = newFakeKeycloakConfig()
@@ -134,10 +154,11 @@ func newTestProxyService(t *testing.T, config *Config) (*oauthProxy, *fakeOAuthS
 	config.SkipTokenVerification = false
 	config.DiscoveryURL = auth.getLocation()
 	config.Verbose = false
+
 	// step: create a proxy
 	proxy, err := newProxy(config)
 	if err != nil {
-		t.Fatalf("failed to create proxy service, error: %s", err)
+		return nil, nil, "", fmt.Errorf("failed to create proxy service, error: %s", err)
 	}
 	// step: create an fake upstream endpoint
 	proxy.upstream = new(fakeReverseProxy)
@@ -147,10 +168,10 @@ func newTestProxyService(t *testing.T, config *Config) (*oauthProxy, *fakeOAuthS
 	// step: we need to update the client config
 	proxy.client, proxy.provider, err = createOpenIDClient(config)
 	if err != nil {
-		t.Fatalf("failed to recreate the openid client, error: %s", err)
+		return nil, nil, "", fmt.Errorf("failed to recreate the openid client, error: %s", err)
 	}
 
-	return proxy, auth, service.URL
+	return proxy, auth, service.URL, nil
 }
 
 func TestNewKeycloakProxy(t *testing.T) {
@@ -191,14 +212,14 @@ func TestRedirectToAuthorizationUnauthorized(t *testing.T) {
 }
 
 func TestCreateReverseProxy(t *testing.T) {
-	proxy, _, _ := newTestProxyService(t, nil)
+	proxy, _ := newTestProxy(nil)
 	err := createReverseProxy(proxy.config, proxy)
 	assert.NoError(t, err)
 	assert.NotNil(t, proxy.router)
 }
 
 func TestCreateForwardProxy(t *testing.T) {
-	proxy, _, _ := newTestProxyService(t, nil)
+	proxy, _ := newTestProxy(nil)
 	err := createForwardingProxy(proxy.config, proxy)
 	assert.NoError(t, err)
 	assert.NotNil(t, proxy.router)
@@ -229,6 +250,20 @@ func TestAccessForbidden(t *testing.T) {
 	proxy.config.SkipTokenVerification = true
 	if proxy.accessForbidden(context); context.Writer.Status() != http.StatusForbidden {
 		t.Errorf("we should have recieved a forbidden access")
+	}
+}
+
+func BenchmarkAuthentication(b *testing.B) {
+	token := newFakeAccessToken()
+	svc, _, url, _ := newTestProxyService(nil)
+	svc.config.SkipTokenVerification = true
+
+	for n := 0; n < b.N; n++ {
+		req, _ := http.NewRequest("GET", url+fakeAdminRoleURL, nil)
+		req.Header.Add("AUthorization", "Bearer "+token.Encode())
+
+		resp, _ := http.DefaultTransport.RoundTrip(req)
+		resp.Body.Close()
 	}
 }
 

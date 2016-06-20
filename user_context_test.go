@@ -30,8 +30,8 @@ func newFakeAccessToken() jose.JWT {
 			"alg": "RS256",
 		},
 		jose.Claims{
-			"jti": "4ee75b8e-3ee6-4382-92d4-3390b4b4937b",
-			//"exp": "1450372969",
+			"jti":            "4ee75b8e-3ee6-4382-92d4-3390b4b4937b",
+			"exp":            float64(time.Now().Add(10 * time.Hour).Unix()),
 			"nbf":            0,
 			"iat":            "1450372669",
 			"iss":            "https://keycloak.example.com/auth/realms/commons",
@@ -44,7 +44,7 @@ func newFakeAccessToken() jose.JWT {
 			"resource_access": map[string]interface{}{
 				"openvpn": map[string]interface{}{
 					"roles": []string{
-						"dev-vpn",
+						"admin",
 					},
 				},
 			},
@@ -153,10 +153,7 @@ func TestGetUserContext(t *testing.T) {
 	assert.Equal(t, "1e11e539-8256-4b3b-bda8-cc0d56cddb48", context.id)
 	assert.Equal(t, "gambol99@gmail.com", context.email)
 	assert.Equal(t, "rjayawardene", context.preferredName)
-	roles := []string{"openvpn:dev-vpn"}
-	if !reflect.DeepEqual(context.roles, roles) {
-		t.Errorf("the claims are not the same, %v <-> %v", context.roles, roles)
-	}
+	assert.Equal(t, []string{"openvpn:admin"}, context.roles)
 }
 
 func BenchmarkExtractIdentity(b *testing.B) {

@@ -30,9 +30,9 @@ import (
 )
 
 func TestCreateOpenIDClient(t *testing.T) {
-	_, auth, _ := newTestProxyService(t, nil)
+	url, _ := newTestProxyWithAuth(nil)
 	client, _, err := createOpenIDClient(&Config{
-		DiscoveryURL: auth.location.String() + "/auth/realms/hod-test",
+		DiscoveryURL: url,
 	})
 	assert.NoError(t, err)
 	assert.NotNil(t, client)
